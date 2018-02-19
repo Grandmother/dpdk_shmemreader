@@ -1,0 +1,58 @@
+variables:
+        DEPLOY_DIR: /var/web/shmem_reader/$CI_COMMIT_REF_NAME/$CI_PIPELINE_ID
+
+stages:
+    - build
+    - deploy
+
+.build_bin: &build_bin
+        script:
+        - mkdir -p .build
+        - cd .build
+        - rm -rf *
+        - cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+        - make ${BUILD_TARGET}
+        - mkdir -p $DEPLOY_DIR
+        - cp shmem_reader $DEPLOY_DIR/shmem_reader${BIN_SUFFIX}
+
+build:
+        stage: build
+        variables:
+                BUILD_TYPE: "RelWithDebInfo"
+        <<: *build_bin
+
+build:debug:
+        stage: build
+        variables:
+                BUILD_TYPE: "Debug"
+                BIN_SUFFIX: "_debug"
+        <<: *build_bin
+        when: manual
+
+deploy:Y:
+        stage: deploy
+        variables:
+                GIT_STRATEGY: none
+        dependencies:
+                - build
+        script:
+                - mkdir -p $DEPLOY_DIR
+                - scp build_node:$DEPLOY_DIR/* $DEPLOY_DIR
+        allow_failure: true
+        tags:
+                - test_dev_Y
+        environment: DELTA-Y-CORE
+
+deploy:X:
+        stage: deploy
+        variables:
+                GIT_STRATEGY: none
+        dependencies:
+                - build
+        script:
+                - mkdir -p $DEPLOY_DIR
+                - scp build_node:$DEPLOY_DIR/* $DEPLOY_DIR
+        allow_failure: true
+        tags:
+                - test_dev_X
+        environment: DELTA-X-BORDER
